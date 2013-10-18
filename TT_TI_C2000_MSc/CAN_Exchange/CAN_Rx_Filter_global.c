@@ -26,7 +26,8 @@ Uint16 numRxCANMsgs_G = 0;
 Uint16 filterSize_G = 0;
 
 /* Filter segment array */
-filterSegment_t segments[NUM_FILTER_SEGMENTS];
+filterSegment_t segments[NUM_FILTER_SEGMENTS_MAX];
+static Uint16 segmentNumber = 0;
 
 
 /***********************************************************************************************************
@@ -34,51 +35,47 @@ filterSegment_t segments[NUM_FILTER_SEGMENTS];
  * Since we don't know where in the sequence we will start, the schedule timer for all messages is set to 1.
  * *********************************************************************************************************/
 void buildSequence(Uint16 listSize){
-	Uint16 i, cycleTime_min, newReload, remainder = 0;
+	Uint16 i, cycleTime_min = 0, newReload, remainder = 0;
 
+	segmentNumber = 0;
 
 	/* Define filter segments parameters - ideally this would be dynamic, but out of the scope of this project. */
-	segments[0].filterStart 	= 0;
-	segments[0].filterEnd 		= 10;
-	segments[0].sequenceStart 	= 0;
-	segments[0].sequenceEnd 	= 21;
-
-	segments[1].filterStart 	= 11;
-	segments[1].filterEnd 		= 31;
-	segments[1].sequenceStart 	= 22;
-	segments[1].sequenceEnd 	= 81;
+//	segments[0].filterStart 	= 0;
+//	segments[0].filterEnd 		= 10;
+//	segments[0].sequenceStart 	= 0;
+//	segments[0].sequenceEnd 	= 21;
+//
+//	segments[1].filterStart 	= 11;
+//	segments[1].filterEnd 		= 31;
+//	segments[1].sequenceStart 	= 22;
+//	segments[1].sequenceEnd 	= 81;
 
 	/* Finds the minimum cycle time in the logging list */
- 	cycleTime_min = 0xFFFF;
- 	for(i=0;i<listSize;i++){
- 		if(loggingList_G[i].cycleTime_LLRx < cycleTime_min){
- 			cycleTime_min = loggingList_G[i].cycleTime_LLRx;
- 		}
- 	}
+ 	cycleTime_min = 0;
+ 	numRxCANMsgs_G = listSize;
 
  	for(i=0;i<listSize;i++){
+
+ 		/* Segments are assigned dynamically -
+ 		 * Limitations: ID's must be sent to the device ordered by cycle time, lowest - highest.
+ 		 */
+ 		if(loggingList_G[i].cycleTime_LLRx > cycleTime_min){
+ 			cycleTime_min = loggingList_G[i].cycleTime_LLRx;
+ 			newSegment(i);
+ 		}
+
+
 		CAN_RxMessages_G[i].canID = loggingList_G[i].canID_LLRx;
 		CAN_RxMessages_G[i].canData.rawData[0] = 0;
 		CAN_RxMessages_G[i].canData.rawData[1] = 0;
 		CAN_RxMessages_G[i].canDLC = loggingList_G[i].canDLC_LLRx;
-
-		/* timer_reload set proportionally to weight the filter in favour of more frequent IDs */
-		newReload = (loggingList_G[i].cycleTime_LLRx / cycleTime_min);
-		/* Rounding logic */
-		remainder = (loggingList_G[i].cycleTime_LLRx % cycleTime_min);
-		if((remainder > 0)&&(remainder >= (cycleTime_min/2))){
-			CAN_RxMessages_G[i].timer_reload = (newReload + 1);
-		}
-		else{
-			CAN_RxMessages_G[i].timer_reload = newReload;
-		}
 
 		/* Force all timers to 1 for first iteration - level playing field */
 		CAN_RxMessages_G[i].timer = 1;
 		CAN_RxMessages_G[i].counter = 0;
  	}
 
- 	numRxCANMsgs_G = listSize;
+	newSegment(listSize);
  }
 
 
@@ -141,7 +138,7 @@ int16 getNextSequenceIndex(Uint16 mailbox_num){
 Uint16 findSegment(Uint16 mailbox){
 	Uint16 segmentNumber = 0, i;
 
-	for(i = 0; i < NUM_FILTER_SEGMENTS; i++){
+	for(i = 0; i < segmentNumber; i++){
 		if((mailbox >= segments[i].filterStart) && (mailbox <= segments[i].filterEnd)){
 			segmentNumber = i;
 		}
@@ -149,6 +146,41 @@ Uint16 findSegment(Uint16 mailbox){
 
 	return segmentNumber;
 }
+
+
+/***********************************************************************************************************
+ * Ends previous segment, and begins a new one. *
+ * *********************************************************************************************************/
+void newSegment(Uint16 SequenceIndex){
+	Uint16 filterIndex = 0;
+
+	filterIndex = SequenceIndex/FILTERSIZE_RATIO;
+	if((filterIndex%FILTERSIZE_RATIO)!=0){
+		filterIndex += 1;
+	}
+
+	printf("S:%uF:%u\n",SequenceIndex,filterIndex);
+
+	if(filterIndex <= NUM_MAILBOXES_MAX){
+		segments[segmentNumber].filterEnd = (filterIndex-1);
+	}
+	else{
+		segments[segmentNumber].filterEnd = (NUM_MAILBOXES_MAX-1);
+	}
+
+	segments[segmentNumber].sequenceEnd = (SequenceIndex-1);
+
+	if((SequenceIndex < numRxCANMsgs_G) && (segmentNumber+1 < NUM_FILTER_SEGMENTS_MAX)){
+		segmentNumber++;
+
+		segments[segmentNumber].filterStart = filterIndex;
+		segments[segmentNumber].sequenceStart = SequenceIndex;
+	}
+
+	printf("N:%u\n",segmentNumber);
+
+}
+
 
 /***********************************************************************************************************
  * Replaces the ID in the filter at location filterPointer, with ID from sequence at location sequencePointer.
@@ -159,13 +191,8 @@ void updateFilter(Uint16 filterIndex, int16 sequenceIndex_replace){
 	if(updateSequenceRequired_G == RUN){
 		/* Message scheduling */
 		sequenceIndex_old = mailBoxFilterShadow_G[filterIndex].sequenceIndex_mapped;
+		CAN_RxMessages_G[sequenceIndex_old].timer = 1;								/* No need for cycle time compensation */
 
-//		if(CAN_RxMessages_G[sequenceIndex_old].timer >= 0){														/* Duplication restriction DOES NOT help when filter is segmented */
-			CAN_RxMessages_G[sequenceIndex_old].timer = 1;								/* No need for cycle time compensation
-//		}
-//		else{
-//			CAN_RxMessages_G[sequenceIndex_old].timer++;
-//		}
 	}
 	else{
 		/* Used during mailbox reload - replicates the timer mechanism for first use of ID */

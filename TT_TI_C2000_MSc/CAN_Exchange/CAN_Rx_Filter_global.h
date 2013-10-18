@@ -10,13 +10,13 @@
 #ifndef CAN_RX_GLOBAL_H_
 #define CAN_RX_GLOBAL_H_
 
-#define NUM_MAILBOXES_MAX 	(32)
-#define NUM_MESSAGES_MAX 	(100)
-#define MAILBOX_DECAY_TIME	(100)
-#define NUM_FILTER_SEGMENTS	(2)
+#define NUM_MAILBOXES_MAX 		(32)
+#define NUM_MESSAGES_MAX 		(100)
+#define MAILBOX_DECAY_TIME		(100)
+#define NUM_FILTER_SEGMENTS_MAX	(10)
 
-#define DUPLICATES_LIMIT 	(1)		/* Controls the number of duplicates for each ID allowed to be added to filter between arrivals of that ID */
-#define FILTERSIZE_RATIO	(2)
+#define DUPLICATES_LIMIT 		(1)		/* Controls the number of duplicates for each ID allowed to be added to filter between arrivals of that ID */
+#define FILTERSIZE_RATIO		(2)
 
 #include <DSP2833x_Device.h>
 #include "../Lib/CAN/CAN.h"
@@ -130,6 +130,7 @@ int16 getNextSequenceIndex(Uint16 mailbox_num);
  * Returns the filter segment that matches the requested mailbox. *
  * *********************************************************************************************************/
 Uint16 findSegment(Uint16 mailbox);
+void newSegment(Uint16 SequenceIndex);
 
 /***********************************************************************************************************
  * Replaces the ID in the filter at location filterPointer, with ID from sequence at location sequencePointer.
