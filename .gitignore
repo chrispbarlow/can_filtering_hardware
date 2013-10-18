@@ -1,0 +1,19 @@
+.metadata/
+RemoteSystemsTempFiles/.project
+Analysis_tool/.cproject
+Analysis_tool/Debug/src/PCANalysis.o
+Analysis_tool/CAN_Logging_new.txt
+Documents/Reports/~$ogress report Dec12-Jan13.docx
+Documents/Reports/~$ogress report May13-Jun13.docx
+Documents/Results/~$Side-by-side_33IDs.xlsx
+Documents/~$System diagrams.xlsx
+Processing/PointsLines/log_output.txt
+*.png
+*.tmp
+*.mov
+Documents/Reports/~$ogress report Jul13.docx
+Documents/Results/~$Side-by-side_33IDs_SD.xlsx
+*.rej
+Documents/~$Window visualisation.xlsx
+Documents/~$Window visualisation2.xlsx
+Documents/~$oject_Report.docx
