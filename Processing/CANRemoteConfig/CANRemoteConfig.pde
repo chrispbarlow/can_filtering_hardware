@@ -97,7 +97,7 @@ int duplicatesAllowed = 1; /* This isn't implemented in the device code. Still d
 //  {0x70D,1,100}
 //};
 
-///* The logging list. This is transmitted to the device for filter configuration */
+/* The logging list. This is transmitted to the device for filter configuration */
 //int[][] loggingList = {
 //  {0x187,8,20},
 //  {0x188,8,20},

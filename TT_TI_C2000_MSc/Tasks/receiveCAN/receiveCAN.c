@@ -45,30 +45,20 @@ void receiveCAN_update(void){
 		}
 
 		mailBox = 0;
-		if(filterSize_G == 0){	/* Dynamic filterSize calculation if 0 is received from configuration app */
-			filterSize_G = numRxCANMsgs_G/FILTERSIZE_RATIO;
-			if((numRxCANMsgs_G%FILTERSIZE_RATIO)!=0){
-				filterSize_G += 1;
-			}
-		}
+
 		updateSequenceRequired_G = UPDATE;
 		break;
 
 	/* Set up mailboxes for initial filter conditions */
 	case UPDATE:
-
 		/* Direct copy of first filterSize_G IDs in the sequence */
-		updateFilter(mailBox,mailBox);
+		initFilter(mailBox);
 		mailBoxFilterShadow_G[mailBox].mailboxTimeout = MAILBOX_DECAY_TIME;
-		//printf("%d: %d %d\n",mailBox, CAN_RxMessages_G[mailBox].timer, CAN_RxMessages_G[mailBox].timer_reload);
 
 		/* Initialising one mailBox per tick ensures all mailboxes are initialised before moving to RUN (mainly so that we can printf some debug info) */
 		mailBox++;
 		if(mailBox == filterSize_G){
-			getNextSequenceIndex(0); /* Calling here re-initialises the sequencePointer */
-			getNextSequenceIndex(1); /* Calling here re-initialises the sequencePointer */
 			updateSequenceRequired_G = RUN;
-			//printf("T:%d", mailBox);
 		}
 		break;
 

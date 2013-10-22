@@ -102,6 +102,8 @@ void controlSCI_update(void){
          	 *  	etc
          	 * */
 			if((i>0)&&(rxbuffer[i-1] == '~')&&(rxbuffer[i] == '}')){
+				/* flag tells receiveCAN to update the logging sequence */
+				updateSequenceRequired_G = INIT;
 
 				/* In above eg, i = 16 at end of packet, numRxCANMsgs_G = 3 */
 				sequenceSize_Rx = (i-4)/4;

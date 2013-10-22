@@ -24,6 +24,7 @@ updateFlags_t updateSequenceRequired_G = INIT;
 /* Global control variables */
 Uint16 numRxCANMsgs_G = 0;
 Uint16 filterSize_G = 0;
+Uint16 numSegments_G = 0;
 
 /* Filter segment array */
 filterSegment_t segments[NUM_FILTER_SEGMENTS_MAX];
@@ -35,25 +36,14 @@ static Uint16 segmentNumber = 0;
  * Since we don't know where in the sequence we will start, the schedule timer for all messages is set to 1.
  * *********************************************************************************************************/
 void buildSequence(Uint16 listSize){
-	Uint16 i, cycleTime_min = 0, newReload, remainder = 0;
+	Uint16 i, cycleTime_min = 0;
 
 	segmentNumber = 0;
-
-	/* Define filter segments parameters - ideally this would be dynamic, but out of the scope of this project. */
-//	segments[0].filterStart 	= 0;
-//	segments[0].filterEnd 		= 10;
-//	segments[0].sequenceStart 	= 0;
-//	segments[0].sequenceEnd 	= 21;
-//
-//	segments[1].filterStart 	= 11;
-//	segments[1].filterEnd 		= 31;
-//	segments[1].sequenceStart 	= 22;
-//	segments[1].sequenceEnd 	= 81;
 
 	/* Finds the minimum cycle time in the logging list */
  	cycleTime_min = 0;
  	numRxCANMsgs_G = listSize;
-
+ 	printf("msgs:%u\n",numRxCANMsgs_G);
  	for(i=0;i<listSize;i++){
 
  		/* Segments are assigned dynamically -
@@ -63,7 +53,6 @@ void buildSequence(Uint16 listSize){
  			cycleTime_min = loggingList_G[i].cycleTime_LLRx;
  			newSegment(i);
  		}
-
 
 		CAN_RxMessages_G[i].canID = loggingList_G[i].canID_LLRx;
 		CAN_RxMessages_G[i].canData.rawData[0] = 0;
@@ -75,7 +64,9 @@ void buildSequence(Uint16 listSize){
 		CAN_RxMessages_G[i].counter = 0;
  	}
 
+ 	/* final call to newSegment initialises the end point of the last segment */
 	newSegment(listSize);
+	numSegments_G = (segmentNumber+1);
  }
 
 
@@ -90,47 +81,78 @@ int16 getNextSequenceIndex(Uint16 mailbox_num){
 
 	segment =  findSegment(mailbox_num);
 
-	if(updateSequenceRequired_G != RUN){
-		/* Reset sequencePointer to continue sequence after loading mailbox */
-		segments[segment].sequenceIndex = (segments[segment].sequenceEnd-1);
-		sequenceIndex_next = segments[segment].sequenceIndex;
-	}
-	else{
-		/* Find next required CAN ID in sequence */
-		sequenceIndex_next = segments[segment].sequenceIndex;
-		do{
-			/* Wrap search */
-			if(sequenceIndex_next < segments[segment].sequenceEnd){
-				sequenceIndex_next++;
+	/* Find next required CAN ID in sequence */
+	sequenceIndex_next = segments[segment].sequenceIndex;
+	do{
+		/* Wrap search */
+		if(sequenceIndex_next < segments[segment].sequenceEnd){
+			sequenceIndex_next++;
+		}
+		else{
+			sequenceIndex_next = segments[segment].sequenceStart;
+		}
+
+		/* ID not already in mailbox, decrement 'schedule' timer (timer sits between -DUPLICATES ALLOWED and 0 while ID is in one or more mailboxes) */
+		if(CAN_RxMessages_G[sequenceIndex_next].timer > (0-DUPLICATES_LIMIT)){
+			CAN_RxMessages_G[sequenceIndex_next].timer--;
+
+			/* ID ready to be inserted */
+			if(CAN_RxMessages_G[sequenceIndex_next].timer <= 0){
+				searchResult = TRUE;
 			}
 			else{
-				sequenceIndex_next = segments[segment].sequenceStart;
+				searchResult = FALSE;	/* ET balancing */
 			}
+		}
+		else{
+			searchResult = FALSE;		/* ET balancing */
+		}
+	}	/* Search will abort if all messages have been checked */
+	while((searchResult == FALSE)&&(sequenceIndex_next != segments[segment].sequenceIndex));
 
-			/* ID not already in mailbox, decrement 'schedule' timer (timer sits between -DUPLICATES ALLOWED and 0 while ID is in one or more mailboxes) */
-			if(CAN_RxMessages_G[sequenceIndex_next].timer > (0-DUPLICATES_LIMIT)){
-				CAN_RxMessages_G[sequenceIndex_next].timer--;
-
-				/* ID ready to be inserted */
-				if(CAN_RxMessages_G[sequenceIndex_next].timer <= 0){
-					searchResult = TRUE;
-				}
-				else{
-					searchResult = FALSE;	/* ET balancing */
-				}
-			}
-			else{
-				searchResult = FALSE;		/* ET balancing */
-			}
-		}	/* Search will abort if all messages have been checked */
-		while((searchResult == FALSE)&&(sequenceIndex_next != segments[segment].sequenceIndex));
-
-		segments[segment].sequenceIndex = sequenceIndex_next;
-	}
+	segments[segment].sequenceIndex = sequenceIndex_next;
 
 	return sequenceIndex_next;
 }
 
+
+/***********************************************************************************************************
+ * Replaces the ID in the filter at location filterPointer, with ID from sequence at location sequencePointer.
+ * *********************************************************************************************************/
+void updateFilter(Uint16 filterIndex, int16 sequenceIndex_replace){
+	Uint16 sequenceIndex_old;
+
+	/* Message scheduling */
+	sequenceIndex_old = mailBoxFilterShadow_G[filterIndex].sequenceIndex_mapped;
+	CAN_RxMessages_G[sequenceIndex_old].timer = 1;								/* No need for cycle time compensation */
+
+	/* ID replacement in shadow */
+	mailBoxFilterShadow_G[filterIndex].canID_mapped = CAN_RxMessages_G[sequenceIndex_replace].canID;
+	mailBoxFilterShadow_G[filterIndex].sequenceIndex_mapped = sequenceIndex_replace;
+
+	/* Real ID replacement - also re-enables mailbox*/
+	configureRxMailbox(CANPORT_A, filterIndex, ID_STD, CAN_RxMessages_G[sequenceIndex_replace].canID, CAN_RxMessages_G[sequenceIndex_replace].canDLC);
+}
+
+/***********************************************************************************************************
+ * Sets the mailbox at filterIndex to initial state
+ * *********************************************************************************************************/
+void initFilter(Uint16 filterIndex){
+	Uint16 sequenceIndex_init, segmentIndex;
+
+	segmentIndex =  findSegment(filterIndex);
+	sequenceIndex_init = segments[segmentIndex].sequenceIndex++;
+
+	/* Replicates the timer mechanism for first use of ID */
+	CAN_RxMessages_G[sequenceIndex_init].timer = 0;
+
+	/* ID replacement in shadow */
+	mailBoxFilterShadow_G[filterIndex].canID_mapped = CAN_RxMessages_G[sequenceIndex_init].canID;
+	mailBoxFilterShadow_G[filterIndex].sequenceIndex_mapped = sequenceIndex_init;
+
+	/* Real ID replacement - also re-enables mailbox*/
+	configureRxMailbox(CANPORT_A, filterIndex, ID_STD, CAN_RxMessages_G[sequenceIndex_init].canID, CAN_RxMessages_G[sequenceIndex_init].canDLC);
+}
 
 /***********************************************************************************************************
  * Returns the filter segment that matches the requested mailbox. *
@@ -138,7 +160,7 @@ int16 getNextSequenceIndex(Uint16 mailbox_num){
 Uint16 findSegment(Uint16 mailbox){
 	Uint16 segmentNumber = 0, i;
 
-	for(i = 0; i < segmentNumber; i++){
+	for(i = 0; i < numSegments_G; i++){
 		if((mailbox >= segments[i].filterStart) && (mailbox <= segments[i].filterEnd)){
 			segmentNumber = i;
 		}
@@ -153,13 +175,13 @@ Uint16 findSegment(Uint16 mailbox){
  * *********************************************************************************************************/
 void newSegment(Uint16 SequenceIndex){
 	Uint16 filterIndex = 0;
+	printf("I:%u",SequenceIndex);
 
 	filterIndex = SequenceIndex/FILTERSIZE_RATIO;
 	if((filterIndex%FILTERSIZE_RATIO)!=0){
 		filterIndex += 1;
 	}
 
-	printf("S:%uF:%u\n",SequenceIndex,filterIndex);
 
 	if(filterIndex <= NUM_MAILBOXES_MAX){
 		segments[segmentNumber].filterEnd = (filterIndex-1);
@@ -168,41 +190,24 @@ void newSegment(Uint16 SequenceIndex){
 		segments[segmentNumber].filterEnd = (NUM_MAILBOXES_MAX-1);
 	}
 
+	filterSize_G = segments[segmentNumber].filterEnd + 1;
+
 	segments[segmentNumber].sequenceEnd = (SequenceIndex-1);
 
-	if((SequenceIndex < numRxCANMsgs_G) && (segmentNumber+1 < NUM_FILTER_SEGMENTS_MAX)){
+	printf("Seg:%uSE:%uFE:%u\n",segmentNumber,segments[segmentNumber].sequenceEnd,segments[segmentNumber].filterEnd);
+
+
+	if(SequenceIndex > 0){
 		segmentNumber++;
+		printf("Seg:%u",segmentNumber);
+	}
+
+	if((SequenceIndex < numRxCANMsgs_G) && (segmentNumber < (NUM_FILTER_SEGMENTS_MAX-1))){
 
 		segments[segmentNumber].filterStart = filterIndex;
 		segments[segmentNumber].sequenceStart = SequenceIndex;
+		segments[segmentNumber].sequenceIndex = SequenceIndex;
+		printf("SS:%uFS:%u\n",segments[segmentNumber].sequenceStart,segments[segmentNumber].filterStart);
 	}
 
-	printf("N:%u\n",segmentNumber);
-
-}
-
-
-/***********************************************************************************************************
- * Replaces the ID in the filter at location filterPointer, with ID from sequence at location sequencePointer.
- * *********************************************************************************************************/
-void updateFilter(Uint16 filterIndex, int16 sequenceIndex_replace){
-	Uint16 sequenceIndex_old;
-
-	if(updateSequenceRequired_G == RUN){
-		/* Message scheduling */
-		sequenceIndex_old = mailBoxFilterShadow_G[filterIndex].sequenceIndex_mapped;
-		CAN_RxMessages_G[sequenceIndex_old].timer = 1;								/* No need for cycle time compensation */
-
-	}
-	else{
-		/* Used during mailbox reload - replicates the timer mechanism for first use of ID */
-		CAN_RxMessages_G[filterIndex].timer = 0;
-	}
-
-	/* ID replacement in shadow */
-	mailBoxFilterShadow_G[filterIndex].canID_mapped = CAN_RxMessages_G[sequenceIndex_replace].canID;
-	mailBoxFilterShadow_G[filterIndex].sequenceIndex_mapped = sequenceIndex_replace;
-
-	/* Real ID replacement - also re-enables mailbox*/
-	configureRxMailbox(CANPORT_A, filterIndex, ID_STD, CAN_RxMessages_G[sequenceIndex_replace].canID, CAN_RxMessages_G[sequenceIndex_replace].canDLC);
 }
