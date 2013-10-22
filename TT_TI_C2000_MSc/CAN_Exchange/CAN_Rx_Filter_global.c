@@ -66,7 +66,7 @@ void buildSequence(Uint16 listSize){
 
  	/* final call to newSegment initialises the end point of the last segment */
 	newSegment(listSize);
-	numSegments_G = (segmentNumber+1);
+	numSegments_G = segmentNumber;
  }
 
 
@@ -80,9 +80,9 @@ int16 getNextSequenceIndex(Uint16 mailbox_num){
 	Uint16 segment;
 
 	segment =  findSegment(mailbox_num);
+	sequenceIndex_next = segments[segment].sequenceIndex;
 
 	/* Find next required CAN ID in sequence */
-	sequenceIndex_next = segments[segment].sequenceIndex;
 	do{
 		/* Wrap search */
 		if(sequenceIndex_next < segments[segment].sequenceEnd){
@@ -177,33 +177,36 @@ void newSegment(Uint16 SequenceIndex){
 	Uint16 filterIndex = 0;
 	printf("I:%u",SequenceIndex);
 
+	/* Dynamically assigns a space in the filter depending on the current SequenceIndex location and the FILTERSIZE_RATIO */
 	filterIndex = SequenceIndex/FILTERSIZE_RATIO;
 	if((filterIndex%FILTERSIZE_RATIO)!=0){
 		filterIndex += 1;
 	}
 
-
-	if(filterIndex <= NUM_MAILBOXES_MAX){
-		segments[segmentNumber].filterEnd = (filterIndex-1);
-	}
-	else{
+	/* Makes sure the filter doesn't overflow */
+	if(filterIndex > NUM_MAILBOXES_MAX){
 		segments[segmentNumber].filterEnd = (NUM_MAILBOXES_MAX-1);
 	}
+	else{
+		segments[segmentNumber].filterEnd = (filterIndex-1);
+	}
 
-	filterSize_G = segments[segmentNumber].filterEnd + 1;
+	/* Global used for filter looping */
+	filterSize_G = (segments[segmentNumber].filterEnd + 1);
 
+	/* Set sequence end point */
 	segments[segmentNumber].sequenceEnd = (SequenceIndex-1);
 
 	printf("Seg:%uSE:%uFE:%u\n",segmentNumber,segments[segmentNumber].sequenceEnd,segments[segmentNumber].filterEnd);
 
-
+	/* Don't increment on initial function call */
 	if(SequenceIndex > 0){
 		segmentNumber++;
-		printf("Seg:%u",segmentNumber);
+		printf("Seg:%u\n",segmentNumber);
 	}
 
+	/* Start a new segment if there are logging list items left */
 	if((SequenceIndex < numRxCANMsgs_G) && (segmentNumber < (NUM_FILTER_SEGMENTS_MAX-1))){
-
 		segments[segmentNumber].filterStart = filterIndex;
 		segments[segmentNumber].sequenceStart = SequenceIndex;
 		segments[segmentNumber].sequenceIndex = SequenceIndex;

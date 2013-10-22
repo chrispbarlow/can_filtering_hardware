@@ -45,7 +45,6 @@ void receiveCAN_update(void){
 		}
 
 		mailBox = 0;
-
 		updateSequenceRequired_G = UPDATE;
 		break;
 

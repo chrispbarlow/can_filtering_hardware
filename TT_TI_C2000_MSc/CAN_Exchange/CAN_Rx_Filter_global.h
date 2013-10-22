@@ -136,8 +136,8 @@ void newSegment(Uint16 SequenceIndex);
 /***********************************************************************************************************
  * Replaces the ID in the filter at location filterPointer, with ID from sequence at location sequencePointer.
  * Arguments:
- * 		filterIndex -- the Index of the filter mailbox to modify
- * 		sequenceIndex_replace -- The new sequence index to use in the filter
+ * 		filterIndex 			-- the Index of the filter mailbox to modify
+ * 		sequenceIndex_replace 	-- The new sequence index to use in the filter
  * *********************************************************************************************************/
 void updateFilter(Uint16 filterIndex, int16 sequenceIndex_replace);
 

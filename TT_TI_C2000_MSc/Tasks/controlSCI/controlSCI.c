@@ -113,7 +113,7 @@ void controlSCI_update(void){
 					filterSize_G = rxbuffer[FSC_DATAPOSITION];
 				}
 				else{
-					filterSize_G = 32;
+					filterSize_G = NUM_MAILBOXES_MAX;
 				}
 
 				/* Unpackaging logging list info from data packet */
