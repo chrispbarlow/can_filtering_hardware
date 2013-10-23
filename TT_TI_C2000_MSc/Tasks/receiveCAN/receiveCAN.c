@@ -26,8 +26,7 @@ void receiveCAN_init(void){
  * *********************************************************************************************************/
 void receiveCAN_update(void){
 	static Uint16 mailBox = 0;
-	Uint16 sequenceIndex_received;
-	int16 sequenceIndex_new;
+	Uint16 sequenceIndex_received, sequenceIndex_new;
 
 	/* updateSequenceRequired_G controls the sequence update mechanism when a new logging list is transmitted to the device */
 	switch(updateSequenceRequired_G){

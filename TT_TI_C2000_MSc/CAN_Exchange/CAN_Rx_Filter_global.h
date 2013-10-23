@@ -125,7 +125,7 @@ void buildSequence(Uint16 listSize);
  * Controls the scheduling of the IDs in the filter.
  * Returns the next valid sequence index to use in the filter.
  * *********************************************************************************************************/
-int16 getNextSequenceIndex(Uint16 mailbox_num);
+Uint16 getNextSequenceIndex(Uint16 mailbox_num);
 
 /***********************************************************************************************************
  * Returns the filter segment that matches the requested mailbox. *

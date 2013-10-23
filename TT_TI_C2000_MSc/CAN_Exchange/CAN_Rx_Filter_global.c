@@ -74,8 +74,8 @@ void buildSequence(Uint16 listSize){
 /***********************************************************************************************************
  * Controls the scheduling of the IDs in the filter.
  * *********************************************************************************************************/
-int16 getNextSequenceIndex(Uint16 mailbox_num){
-	int16 sequenceIndex_next = -1;
+Uint16 getNextSequenceIndex(Uint16 mailbox_num){
+	Uint16 sequenceIndex_next = 0;
 	boolean_t searchResult = FALSE;
 	Uint16 segment;
 
