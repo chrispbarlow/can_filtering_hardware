@@ -75,8 +75,8 @@ void buildSequence(Uint16 listSize){
  * Controls the scheduling of the IDs in the filter.
  * *********************************************************************************************************/
 Uint16 getNextSequenceIndex(Uint16 mailbox_num){
-	Uint16 sequenceIndex_next = 0;
-	boolean_t searchResult = FALSE;
+	Uint16 sequenceIndex_next = 0, searchResult = 0;
+	boolean_t searchSuccess = FALSE;
 	Uint16 segment;
 
 	segment =  findSegment(mailbox_num);
@@ -93,26 +93,30 @@ Uint16 getNextSequenceIndex(Uint16 mailbox_num){
 		}
 
 		/* ID not already in mailbox, decrement 'schedule' timer (timer sits between -DUPLICATES ALLOWED and 0 while ID is in one or more mailboxes) */
-		if(CAN_RxMessages_G[sequenceIndex_next].timer > (0-DUPLICATES_LIMIT)){
+		if((CAN_RxMessages_G[sequenceIndex_next].timer > (0-DUPLICATES_LIMIT))&&(searchSuccess == FALSE)){
 			CAN_RxMessages_G[sequenceIndex_next].timer--;
 
 			/* ID ready to be inserted */
 			if(CAN_RxMessages_G[sequenceIndex_next].timer <= 0){
-				searchResult = TRUE;
+				searchSuccess = TRUE;
+				searchResult = sequenceIndex_next;
 			}
 			else{
-				searchResult = FALSE;	/* ET balancing */
+				searchSuccess = FALSE;
+				searchResult = searchResult;	/* ET balancing */
 			}
 		}
 		else{
-			searchResult = FALSE;		/* ET balancing */
+			searchSuccess = searchSuccess;
+			searchResult = searchResult;		/* ET balancing */
 		}
 	}	/* Search will abort if all messages have been checked */
-	while((searchResult == FALSE)&&(sequenceIndex_next != segments[segment].sequenceIndex));
+	while(sequenceIndex_next != segments[segment].sequenceIndex);
 
-	segments[segment].sequenceIndex = sequenceIndex_next;
 
-	return sequenceIndex_next;
+	segments[segment].sequenceIndex = searchResult;
+
+	return searchResult;
 }
 
 
