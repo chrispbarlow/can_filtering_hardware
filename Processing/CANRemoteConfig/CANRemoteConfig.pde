@@ -46,6 +46,9 @@ int txPointer = 0;
 int filterSizeTx = 32;      /* Set to zero to enable auto-sizing */
 int duplicatesAllowed = 1; /* This isn't implemented in the device code. Still deciding if it's beneficial */
 
+/* The logging list. This is transmitted to the device for filter configuration */
+
+/* Logging list for BMS 151 traces */
 int[][] loggingList = {
   {0x050,1,100},
 //  {0x101,1,100},
@@ -97,7 +100,7 @@ int[][] loggingList = {
   {0x70D,1,100}
 };
 
-/* The logging list. This is transmitted to the device for filter configuration */
+/* Logging list for BMS v<151 */
 //int[][] loggingList = {
 //  {0x187,8,20},
 //  {0x188,8,20},
@@ -134,8 +137,7 @@ int[][] loggingList = {
 //  {0x70D,1,100},  
 //};  
 
-/* The logging list. This is transmitted to the device for filter configuration 
-    Smith Power Prismatic B CAN */
+/* Logging list for BMS175 */
 //int[][] loggingList = {
 //  {0x185,8,10},
 //  {0x385,8,10},
@@ -239,44 +241,7 @@ int[][] loggingList = {
 //  {0x3CE,8,100},  
 //  {0x3DE,8,100}
 //};
-/* The logging list. This is transmitted to the device for filter configuration */
-//int[][] loggingList = {
-//  {80,0,20},
-//  {389,8,20},
-//  {391,8,20},
-//  {392,8,20},
-//  {393,8,20},
-//  {394,8,20},
-//  {395,8,20},
-//  {396,8,20},
-//  {397,8,20},
-//  {398,8,20},
-//  {519,8,20},
-//  {521,8,20},
-//  {523,8,20},
-//  {525,8,20},
-//  {647,8,20},
-//  {649,8,20},
-//  {651,8,20},
-//  {653,8,20},
-//  {775,8,20},
-//  {777,8,20},
-//  {779,8,20},
-//  {781,8,20},
-//  {901,8,20},
-//  {903,8,20},
-//  {905,8,20},
-//  {907,8,20},
-//  {909,8,20},
-//  {1031,8,20},
-//  {1033,8,20},
-//  {1035,8,20},
-//  {1037,8,20},
-//  {1799,1,100},
-//  {1801,1,100},
-//  {1803,1,100},
-//  {1805,1,100},
-//};
+
 
 /* counters for counting */
 long[] counters = new long[loggingList.length];
