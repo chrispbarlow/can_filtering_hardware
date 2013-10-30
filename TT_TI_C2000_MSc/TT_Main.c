@@ -90,8 +90,6 @@ void timerStart(void){
 	// which is connected to CPU-Timer 1, and CPU int 14, which is connected
 	// to CPU-Timer 2:
 	IER |= M_INT1;
-	IER |= M_INT13;
-	IER |= M_INT14;
 
 	// Enable TINT0 in the PIE: Group 1 interrupt 7
 	PieCtrlRegs.PIEIER1.bit.INTx7 = 1;

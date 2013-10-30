@@ -58,6 +58,8 @@ int16 readRxMailbox(char port, char mbNum, Uint32 data[]);
 /* updates the mailbox state machine */
 void updateMailboxes(char port); /* This will probably become the CANTx_update() task */
 
+messageObjectStates_t updateSingleMailbox(char port, char mb);
+
 messageObjectStates_t checkMailboxState(char port, char mbNum);
 Uint32 getMailboxID(char port, char mbNum);
 Uint32 getCANErrors(char port);

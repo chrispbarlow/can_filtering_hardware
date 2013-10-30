@@ -426,6 +426,90 @@ void updateMailboxes(char port){
 	CAN_Ports[port].canRegs->CANRMP.all = CANRMPclearMask;
 }
 
+/* Updates the mailbox state machine (call at least twice between Tx and Rx tasks) */
+messageObjectStates_t updateSingleMailbox(char port, char mb){
+
+	Uint16 i;
+	Uint32 CANRMPclearMask = 0x00000000, CANTAclearMask = 0x00000000;
+
+	canRegsShadow.CANTA.all 	= CAN_Ports[port].canRegs->CANTA.all;
+	canRegsShadow.CANTRS.all 	= CAN_Ports[port].canRegs->CANTRS.all;
+	canRegsShadow.CANRMP.all 	= CAN_Ports[port].canRegs->CANRMP.all;
+
+	for(i = 0; i < 2; i++)
+	{
+		CANTAclearMask = 0x00000000;
+		CANRMPclearMask = 0x00000000;
+
+		switch(CAN_Ports[port].message_Objects[mb].mailboxState)
+		{
+
+		/** Tx States **/
+		case TX_FREE:
+			/* mailbox loaded by separate task */
+			break;
+
+		case TX_PENDING:
+			if((canRegsShadow.CANTRS.all & (bitSelect_32<<mb)) == 0)
+			{
+				if(((canRegsShadow.CANTA.all & (bitSelect_32<<mb)) >> mb) == 1)
+				{
+					CANTAclearMask |= (bitSelect_32<<mb);
+					CAN_Ports[port].message_Objects[mb].mailboxState = TX_SENT;
+				}
+				else
+				{
+					CAN_Ports[port].message_Objects[mb].mailboxState = TX_ERR;
+				}
+			}
+
+			break;
+
+		case TX_SENT:
+			if((canRegsShadow.CANTA.all & (bitSelect_32<<mb)) == 0)
+			{
+				CAN_Ports[port].message_Objects[mb].mailboxState = TX_FREE;
+			}
+			break;
+
+		case TX_ERR:
+			CAN_Ports[port].message_Objects[mb].mailboxState = TX_FREE;
+			/* Transmission aborted */
+			/* TODO: What to do here? */
+			break;
+
+		/** Rx States **/
+		case RX_FREE:
+			if((canRegsShadow.CANRMP.all & (bitSelect_32<<mb)) != 0)
+			{
+				CANRMPclearMask |= (bitSelect_32<<mb);
+				CAN_Ports[port].message_Objects[mb].mailboxState = RX_ARRIVAL;
+			}
+			break;
+
+		case RX_ARRIVAL:
+			if((canRegsShadow.CANRMP.all & (bitSelect_32<<mb)) == 0)
+			{
+				CAN_Ports[port].message_Objects[mb].mailboxState = RX_PENDING;
+			}
+			break;
+
+		case RX_PENDING:
+			/* mailbox read by separate task */
+			break;
+
+
+		case DISABLED:
+		default:
+			break;
+		}
+		CAN_Ports[port].canRegs->CANTA.all = CANTAclearMask;
+		CAN_Ports[port].canRegs->CANRMP.all = CANRMPclearMask;
+	}
+
+	return CAN_Ports[port].message_Objects[mb].mailboxState;
+}
+
 messageObjectStates_t checkMailboxState(char port, char mbNum){
 	return CAN_Ports[port].message_Objects[mbNum].mailboxState;
 }

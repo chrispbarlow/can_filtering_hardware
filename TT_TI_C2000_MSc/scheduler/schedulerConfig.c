@@ -8,23 +8,23 @@
 #include "schedulerConfig.h"
 
 volatile task_t Tasks[] = {
+//	{
+//		handleCAN_update,		/* function pointer */
+//		1,						/* period in ticks */
+//		125,					/* initial offset in ticks */
+//		IN_ISR
+//	},
+
 	{
-		handleCAN_update,		/* function pointer */
-		2,						/* period in ticks */
+		receiveCAN_update,		/* function pointer */
+		1,						/* period in ticks */
 		125,					/* initial offset in ticks */
 		IN_ISR
 	},
 
 	{
-		receiveCAN_update,		/* function pointer */
-		2,						/* period in ticks */
-		126,					/* initial offset in ticks */
-		IN_ISR
-	},
-
-	{
 		controlSCI_update,			/* function pointer */
-		2,						/* period in ticks */
+		1,						/* period in ticks */
 		125,					/* initial offset in ticks */
 		IN_SCHEDULER
 	},

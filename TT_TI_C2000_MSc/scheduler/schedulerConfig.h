@@ -8,7 +8,7 @@
 #ifndef SCHEDULE_H_
 #define SCHEDULE_H_
 
-#define TICK_PERIOD_us (500)
+#define TICK_PERIOD_us (1500)
 
 #define Sched_Config_HybridTasks TRUE
 

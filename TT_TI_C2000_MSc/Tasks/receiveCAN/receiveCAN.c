@@ -64,9 +64,9 @@ void receiveCAN_update(void){
 	case RUN:
 		/* look through mailboxes for pending messages */
 		for(mailBox=0; mailBox<filterSize_G; mailBox++){
+			updateSingleMailbox(CANPORT_A, mailBox);
 
 			if(checkMailboxState(CANPORT_A, mailBox) == RX_PENDING){
-				mailBoxFilterShadow_G[mailBox].mailboxTimeout = 0;
 				disableMailbox(CANPORT_A, mailBox);
 
 				/* Find message pointer from mailbox shadow */
@@ -77,25 +77,26 @@ void receiveCAN_update(void){
 
 				/* Count message hits */
 				CAN_RxMessages_G[sequenceIndex_received].counter++;
+
+/* Unsure whether mailbox decay is helpful. It appears not to make much difference with the segmentation */
+#ifdef DECAY_LOGIC
 			}
 			else if(mailBoxFilterShadow_G[mailBox].mailboxTimeout > 0){
-//				mailBoxFilterShadow_G[mailBox].mailboxTimeout--;			/* Unsure whether decay is helpful. It appears not to make much difference with the segmentation */
+				mailBoxFilterShadow_G[mailBox].mailboxTimeout--;
 			}
 
 			if(mailBoxFilterShadow_G[mailBox].mailboxTimeout == 0){
-
-				disableMailbox(CANPORT_A, mailBox);
-
+				mailBoxFilterShadow_G[mailBox].mailboxTimeout = MAILBOX_DECAY_TIME;
+#endif
 				/* ID scheduling and duplication control */
 				sequenceIndex_new = getNextSequenceIndex(mailBox);
 
 				/* update the filter for next required ID  */
 				updateFilter(mailBox, sequenceIndex_new);	/* Mailbox is re-enabled in configureRxMailbox() - this is done last to help prevent new message arrivals causing erroneous hits mid-way through process*/
 
-				mailBoxFilterShadow_G[mailBox].mailboxTimeout = MAILBOX_DECAY_TIME;
 			}
-
 		}
+
 		break;
 	}
 }

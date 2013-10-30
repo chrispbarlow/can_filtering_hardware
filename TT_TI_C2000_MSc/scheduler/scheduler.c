@@ -8,7 +8,11 @@
 
 static Uint16 interruptCount = 0;
 static Uint16 interruptNesting = 0;
-
+Uint32 ISRtime_G[2];
+Uint32 ISRbcet[2];
+Uint32 ISRwcet[2];
+Uint32 ISRbcetOA;
+Uint32 ISRwcetOA;
 
 void scheduler_Init(void)
 {
@@ -18,12 +22,19 @@ void scheduler_Init(void)
 	{
 		Tasks[i].task_delay++;
 	}
+	for(i = 0; i < 2; i++){
+		ISRbcet[i] = (0xFFFFFFFF);
+		ISRwcet[i] = (0x00000000);
+	}
 }
 
 void scheduler_onTick(void)
 {
 	Uint16 i;
+	Uint32 ISRtimeStart;
+
 	interruptCount++;
+	ISRtimeStart =  CpuTimer0Regs.TIM.all;
 
 	for(i = 0; i < tasksInSchedule; i++)
 	{
@@ -34,6 +45,7 @@ void scheduler_onTick(void)
 		{
 			Tasks[i].task_delay = Tasks[i].task_period;			/* Reload task_delay */
 			(*Tasks[i].task_function)();						/* Call task function */
+			ISRtime_G[i] = ISRtimeStart - CpuTimer0Regs.TIM.all;
 		}
 #endif
 	}
@@ -46,9 +58,27 @@ void scheduler_taskDispatcher(void)
 	Uint16 i;
 
 	interruptDisable();
+
 	while(interruptCount > 0) 	/* Safety net */
 	{
 		interruptCount--;
+
+		for(i=0;i<2;i++){
+			if(ISRtime_G[i] < ISRbcet[i]){
+				ISRbcet[i] = ISRtime_G[i];
+			}
+			else{
+				ISRbcet[i] = ISRbcet[i];
+			}
+
+			if(ISRtime_G[i] > ISRwcet[i]){
+				ISRwcet[i] = ISRtime_G[i];
+			}
+			else{
+				ISRwcet[i] = ISRwcet[i];
+			}
+		}
+
 
 		for(i = 0; i < tasksInSchedule; i++)
 		{
@@ -67,6 +97,7 @@ void scheduler_taskDispatcher(void)
 			}
 		}
 	}
+
 	interruptEnable();
 
 	goIdle(); /* Idle mode puts the processor to sleep, but allows waking on the timer interrupt */
