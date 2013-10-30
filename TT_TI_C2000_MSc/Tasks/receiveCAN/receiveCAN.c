@@ -69,14 +69,11 @@ void receiveCAN_update(void){
 			if(checkMailboxState(CANPORT_A, mailBox) == RX_PENDING){
 				disableMailbox(CANPORT_A, mailBox);
 
-				/* Find message pointer from mailbox shadow */
-				sequenceIndex_received = mailBoxFilterShadow_G[mailBox].sequenceIndex_mapped;
-
 				/* read the CAN data into buffer (Nothing is done with the data, but nice to do this for realistic timing) */
-				readRxMailbox(CANPORT_A, mailBox, CAN_RxMessages_G[sequenceIndex_received].canData.rawData);
+				readRxMailbox(CANPORT_A, mailBox, CAN_RxMessages_G[mailBoxFilterShadow_G[mailBox].sequenceIndex_mapped].canData.rawData);
 
 				/* Count message hits */
-				CAN_RxMessages_G[sequenceIndex_received].counter++;
+				CAN_RxMessages_G[mailBoxFilterShadow_G[mailBox].sequenceIndex_mapped].counter++;
 
 /* Unsure whether mailbox decay is helpful. It appears not to make much difference with the segmentation */
 #ifdef DECAY_LOGIC
@@ -88,12 +85,9 @@ void receiveCAN_update(void){
 			if(mailBoxFilterShadow_G[mailBox].mailboxTimeout == 0){
 				mailBoxFilterShadow_G[mailBox].mailboxTimeout = MAILBOX_DECAY_TIME;
 #endif
-				/* ID scheduling and duplication control */
-				sequenceIndex_new = getNextSequenceIndex(mailBox);
 
 				/* update the filter for next required ID  */
-				updateFilter(mailBox, sequenceIndex_new);	/* Mailbox is re-enabled in configureRxMailbox() - this is done last to help prevent new message arrivals causing erroneous hits mid-way through process*/
-
+				updateFilter(mailBox);	/* Mailbox is re-enabled in configureRxMailbox() - this is done last to help prevent new message arrivals causing erroneous hits mid-way through process*/
 			}
 		}
 

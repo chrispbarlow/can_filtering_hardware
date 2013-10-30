@@ -139,7 +139,7 @@ void newSegment(Uint16 SequenceIndex);
  * 		filterIndex 			-- the Index of the filter mailbox to modify
  * 		sequenceIndex_replace 	-- The new sequence index to use in the filter
  * *********************************************************************************************************/
-void updateFilter(Uint16 filterIndex, int16 sequenceIndex_replace);
+void updateFilter(Uint16 filterIndex);
 
 /***********************************************************************************************************
  * Sets the mailbox at filterIndex to initial state
