@@ -56,7 +56,7 @@ typedef struct {
 	Uint32 canID;			/* CAN ID */
 	canData_t canData;		/* CAN Data */
 	Uint16 canDLC;			/* Message byte length */
-	int16 timer;			/* Used for message scheduling */
+	int16 duplicates;			/* Used for message scheduling */
 	int16 timer_reload;
 	Uint32 counter;			/* Used to track message hits */
 } canRxMessage_t;
