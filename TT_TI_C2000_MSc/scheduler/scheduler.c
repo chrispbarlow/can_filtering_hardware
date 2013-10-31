@@ -22,6 +22,7 @@ void scheduler_Init(void)
 	{
 		Tasks[i].task_delay++;
 	}
+
 	for(i = 0; i < 2; i++){
 		ISRbcet[i] = (0xFFFFFFFF);
 		ISRwcet[i] = (0x00000000);

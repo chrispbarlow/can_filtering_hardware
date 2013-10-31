@@ -75,8 +75,7 @@ void buildSequence(Uint16 listSize){
  * Controls the scheduling of the IDs in the filter.
  * *********************************************************************************************************/
 Uint16 getNextSequenceIndex(Uint16 mailbox_num){
-	Uint16 sequenceIndex_next = 0, searchResult = 0;
-	boolean_t searchSuccess = FALSE;
+	Uint16 sequenceIndex_next = 0;
 	Uint16 segment;
 
 	segment =  findSegment(mailbox_num);
@@ -92,57 +91,20 @@ Uint16 getNextSequenceIndex(Uint16 mailbox_num){
 			sequenceIndex_next = segments[segment].sequenceStart;
 		}
 
-//		switch(CAN_RxMessages_G[sequenceIndex_next].duplicates){
-//		case 0:
-//		case 1:
-//			searchSuccess = TRUE;
-//			searchResult = sequenceIndex_next;
-//			CAN_RxMessages_G[sequenceIndex_next].duplicates++;
-//			break;
-//
-//		default:
-//			searchSuccess = searchSuccess;
-//			searchResult = searchResult;		/* ET balancing */
-//			CAN_RxMessages_G[sequenceIndex_next].duplicates = CAN_RxMessages_G[sequenceIndex_next].duplicates;
-//			break;
-//		}
-//
-
+		/* ID not already in mailbox, decrement 'schedule' timer (timer sits between -DUPLICATES ALLOWED and 0 while ID is in one or more mailboxes) */
 		if(CAN_RxMessages_G[sequenceIndex_next].duplicates <= DUPLICATES_LIMIT){
-			searchSuccess = TRUE;
-			searchResult = sequenceIndex_next;
+			segments[segment].sequenceIndex = sequenceIndex_next;
 			CAN_RxMessages_G[sequenceIndex_next].duplicates++;
 		}
 		else{
-			searchSuccess = searchSuccess;
-			searchResult = searchResult;		/* ET balancing */
 			CAN_RxMessages_G[sequenceIndex_next].duplicates = CAN_RxMessages_G[sequenceIndex_next].duplicates;
+			segments[segment].sequenceIndex = segments[segment].sequenceIndex;
 		}
 
-		/* ID not already in mailbox, decrement 'schedule' timer (timer sits between -DUPLICATES ALLOWED and 0 while ID is in one or more mailboxes) */
-//		if((CAN_RxMessages_G[sequenceIndex_next].duplicates > (0-DUPLICATES_LIMIT))&&(searchSuccess == FALSE)){
-//			CAN_RxMessages_G[sequenceIndex_next].duplicates--;
-//
-//			/* ID ready to be inserted */
-//			if(CAN_RxMessages_G[sequenceIndex_next].duplicates <= 0){
-//				searchSuccess = TRUE;
-//				searchResult = sequenceIndex_next;
-//			}
-//			else{
-//				searchSuccess = FALSE;
-//				searchResult = searchResult;	/* ET balancing */
-//			}
-//		}
-//		else{
-//			searchSuccess = searchSuccess;
-//			searchResult = searchResult;		/* ET balancing */
-//		}
 	}	/* Search will abort if all messages have been checked */
-	while((searchSuccess == FALSE)&&(sequenceIndex_next != segments[segment].sequenceIndex));
+	while(sequenceIndex_next != segments[segment].sequenceIndex);
 
-	segments[segment].sequenceIndex = searchResult;
-
-	return searchResult;
+	return sequenceIndex_next;
 }
 
 
@@ -150,52 +112,45 @@ Uint16 getNextSequenceIndex(Uint16 mailbox_num){
  * Replaces the ID in the filter at location filterPointer, with ID from sequence at location sequencePointer.
  * *********************************************************************************************************/
 void updateFilter(Uint16 filterIndex){
-	Uint16 sequenceIndex_old;
-	Uint16 sequenceIndex_next = 0;
-	boolean_t searchSuccess = FALSE;
+	Uint16 sequenceIndex_new = 0;
 	Uint16 segment;
 
-	segment =  findSegment(filterIndex);
-	sequenceIndex_next = segments[segment].sequenceIndex;
+	sequenceIndex_new = getNextSequenceIndex(filterIndex);
+//
+//	/* Find next required CAN ID in sequence */
+//	do{
+//		/* Wrap search */
+//		if(sequenceIndex_new < segments[segment].sequenceEnd){
+//			sequenceIndex_new++;
+//		}
+//		else{
+//			sequenceIndex_new = segments[segment].sequenceStart;
+//		}
+//
+//		/* ID not already in mailbox, decrement 'schedule' timer (timer sits between -DUPLICATES ALLOWED and 0 while ID is in one or more mailboxes) */
+//		if(CAN_RxMessages_G[sequenceIndex_new].duplicates <= DUPLICATES_LIMIT){
+//			segments[segment].sequenceIndex = sequenceIndex_new;
+//			CAN_RxMessages_G[sequenceIndex_new].duplicates++;
+//		}
+//		else{
+//			segments[segment].sequenceIndex = segments[segment].sequenceIndex;
+//			CAN_RxMessages_G[sequenceIndex_new].duplicates = CAN_RxMessages_G[sequenceIndex_new].duplicates;
+//		}
+//
+//	}	/* Search will abort if all messages have been checked */
+//	while(sequenceIndex_new != segments[segment].sequenceIndex);
 
-	/* Find next required CAN ID in sequence */
-	do{
-		/* Wrap search */
-		if(sequenceIndex_next < segments[segment].sequenceEnd){
-			sequenceIndex_next++;
-		}
-		else{
-			sequenceIndex_next = segments[segment].sequenceStart;
-		}
 
-		/* ID not already in mailbox, decrement 'schedule' timer (timer sits between -DUPLICATES ALLOWED and 0 while ID is in one or more mailboxes) */
-		if(CAN_RxMessages_G[sequenceIndex_next].duplicates <= DUPLICATES_LIMIT){
-			searchSuccess = TRUE;
-			CAN_RxMessages_G[sequenceIndex_next].duplicates++;
-		}
-		else{
-			searchSuccess = searchSuccess;
-			CAN_RxMessages_G[sequenceIndex_next].duplicates = CAN_RxMessages_G[sequenceIndex_next].duplicates;
-		}
+	/* Message scheduling */
+	CAN_RxMessages_G[mailBoxFilterShadow_G[filterIndex].sequenceIndex_mapped].duplicates = 0;								/* We allow more duplicates if a message is accepted by the filter (regardless of the number of duplicates already present) */
 
-	}	/* Search will abort if all messages have been checked */
-	while((searchSuccess == FALSE)&&(sequenceIndex_next != segments[segment].sequenceIndex));
+	/* ID replacement in shadow */
+	mailBoxFilterShadow_G[filterIndex].canID_mapped = CAN_RxMessages_G[sequenceIndex_new].canID;
+	mailBoxFilterShadow_G[filterIndex].sequenceIndex_mapped = sequenceIndex_new;
 
-	segments[segment].sequenceIndex = sequenceIndex_next;
+	/* Real ID replacement - also re-enables mailbox*/
+	configureRxMailbox(CANPORT_A, filterIndex, ID_STD, CAN_RxMessages_G[sequenceIndex_new].canID, CAN_RxMessages_G[sequenceIndex_new].canDLC);
 
-	if(searchSuccess == TRUE){
-
-		/* Message scheduling */
-		sequenceIndex_old = mailBoxFilterShadow_G[filterIndex].sequenceIndex_mapped;
-		CAN_RxMessages_G[sequenceIndex_old].duplicates = 0;								/* We allow more duplicates if a message is accepted by the filter (regardless of the number of duplicates already present) */
-
-		/* ID replacement in shadow */
-		mailBoxFilterShadow_G[filterIndex].canID_mapped = CAN_RxMessages_G[sequenceIndex_next].canID;
-		mailBoxFilterShadow_G[filterIndex].sequenceIndex_mapped = sequenceIndex_next;
-
-		/* Real ID replacement - also re-enables mailbox*/
-		configureRxMailbox(CANPORT_A, filterIndex, ID_STD, CAN_RxMessages_G[sequenceIndex_next].canID, CAN_RxMessages_G[sequenceIndex_next].canDLC);
-	}
 }
 
 /***********************************************************************************************************
