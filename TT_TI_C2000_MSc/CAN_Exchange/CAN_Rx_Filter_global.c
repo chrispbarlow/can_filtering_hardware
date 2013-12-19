@@ -198,7 +198,7 @@ void newSegment(Uint16 SequenceIndex){
 
 	/* Dynamically assigns a space in the filter depending on the current SequenceIndex location and the FILTERSIZE_RATIO */
 	filterIndex = SequenceIndex/FILTERSIZE_RATIO;
-	if((filterIndex%FILTERSIZE_RATIO)!=0){
+	if((SequenceIndex%FILTERSIZE_RATIO)!=0){
 		filterIndex += 1;
 	}
 
